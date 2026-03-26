@@ -1,0 +1,23 @@
+{
+  "name": "cyber-cemetery",
+  "version": "1.0.0",
+  "description": "赛博公墓 - 虚拟人物纪念页面Web应用",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node app.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "sqlite": "^4.2.1",
+    "sql.js": "^1.8.0"
+  },
+  "keywords": [
+    "cemetery",
+    "memorial",
+    "epitaph"
+  ],
+  "author": "",
+  "license": "MIT"
+}

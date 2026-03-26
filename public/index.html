@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>赛博公墓 - 虚拟人物纪念</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- 顶部导航栏 -->
+  <header class="header">
+    <div class="container">
+      <h1 class="logo">赛博公墓</h1>
+      <div class="header-actions">
+        <input type="text" id="search-input" class="search-input" placeholder="搜索人物...">
+        <select id="category-select" class="category-select">
+          <option value="">全部分类</option>
+          <option value="anime">动漫</option>
+          <option value="internet">网红</option>
+          <option value="fiction">小说</option>
+          <option value="real">现实</option>
+          <option value="self">自建墓志铭</option>
+          <option value="other">其他</option>
+        </select>
+        <a href="edit.html" class="btn btn-primary">给自己写墓志铭</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主要内容区 -->
+  <main class="main">
+    <div class="container">
+      <!-- Hero区域 -->
+      <section class="hero">
+        <h2 class="hero-title">在这里，记忆永存</h2>
+        <p class="hero-subtitle">为虚拟人物、动漫角色、网络红人或自己创建数字墓志铭</p>
+        <div class="hero-stats" id="hero-stats">
+          <div class="stat-item">
+            <span class="stat-number" id="stat-total">0</span>
+            <span class="stat-label">纪念人物</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number" id="stat-categories">0</span>
+            <span class="stat-label">分类</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 分类快捷筛选 -->
+      <div class="category-tags" id="category-tags">
+        <button class="tag active" data-category="">全部</button>
+        <button class="tag" data-category="anime">动漫</button>
+        <button class="tag" data-category="internet">网红</button>
+        <button class="tag" data-category="fiction">小说</button>
+        <button class="tag" data-category="real">现实</button>
+        <button class="tag" data-category="self">自建</button>
+        <button class="tag" data-category="other">其他</button>
+      </div>
+      <!-- 人物列表 -->
+      <div id="person-list" class="person-list">
+        <!-- 动态加载内容 -->
+        <div class="loading">加载中...</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 页脚 -->
+  <footer class="footer">
+    <div class="container">
+      <p>赛博公墓 - 在这里，记忆永存</p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+    // 首页特定脚本
+    document.addEventListener('DOMContentLoaded', () => {
+      loadPersonList();
+      loadStats();
+      initCategoryTags();
+
+      // 搜索功能
+      const searchInput = document.getElementById('search-input');
+      let searchTimeout;
+      searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          loadPersonList();
+        }, 300);
+      });
+
+      // 分类下拉筛选
+      const categorySelect = document.getElementById('category-select');
+      categorySelect.addEventListener('change', () => {
+        // 同步标签状态
+        document.querySelectorAll('.category-tags .tag').forEach(tag => {
+          tag.classList.toggle('active', tag.dataset.category === categorySelect.value);
+        });
+        loadPersonList();
+      });
+    });
+
+    // 初始化分类标签
+    function initCategoryTags() {
+      const tagsContainer = document.getElementById('category-tags');
+      const categorySelect = document.getElementById('category-select');
+
+      tagsContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('tag')) {
+          // 更新标签状态
+          document.querySelectorAll('.category-tags .tag').forEach(tag => {
+            tag.classList.remove('active');
+          });
+          e.target.classList.add('active');
+
+          // 同步下拉框并加载
+          const category = e.target.dataset.category;
+          categorySelect.value = category;
+          loadPersonList();
+        }
+      });
+    }
+
+    // 加载统计数据
+    async function loadStats() {
+      try {
+        const response = await fetch('/api/persons');
+        if (!response.ok) throw new Error('加载失败');
+
+        const persons = await response.json();
+        const categories = new Set(persons.map(p => p.category));
+
+        // 动画数字
+        animateNumber('stat-total', persons.length);
+        animateNumber('stat-categories', categories.size);
+      } catch (error) {
+        console.error('加载统计失败:', error);
+      }
+    }
+
+    // 数字动画
+    function animateNumber(elementId, target) {
+      const element = document.getElementById(elementId);
+      const duration = 1000;
+      const start = 0;
+      const startTime = performance.now();
+
+      function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        const current = Math.floor(start + (target - start) * easeOut);
+
+        element.textContent = current;
+
+        if (progress < 1) {
+          requestAnimationFrame(update);
+        }
+      }
+
+      requestAnimationFrame(update);
+    }
+
+    // 显示骨架屏
+    function showSkeleton() {
+      const listContainer = document.getElementById('person-list');
+      listContainer.innerHTML = '<div class="skeleton-list">' +
+        Array(6).fill(0).map(() => `
+          <div class="skeleton-card">
+            <div class="skeleton-avatar"></div>
+            <div class="skeleton-text"></div>
+            <div class="skeleton-text short"></div>
+          </div>
+        `).join('') +
+      '</div>';
+    }
+
+    async function loadPersonList() {
+      const listContainer = document.getElementById('person-list');
+      const search = document.getElementById('search-input').value;
+      const category = document.getElementById('category-select').value;
+
+      // 显示骨架屏
+      showSkeleton();
+
+      try {
+        const params = new URLSearchParams();
+        if (search) params.append('search', search);
+        if (category) params.append('category', category);
+
+        const response = await fetch(`/api/persons?${params}`);
+        if (!response.ok) throw new Error('加载失败');
+
+        const persons = await response.json();
+
+        if (persons.length === 0) {
+          listContainer.innerHTML = `
+            <div class="empty">
+              <div class="empty-icon">🪦</div>
+              <div class="empty-title">暂无人物</div>
+              <div class="empty-desc">来创建第一个纪念吧</div>
+              <a href="edit.html" class="btn btn-primary" style="margin-top: 20px;">立即创建</a>
+            </div>
+          `;
+          return;
+        }
+
+        listContainer.innerHTML = persons.map((person, index) => `
+          <a href="detail.html?id=${person.id}" class="person-card" style="animation-delay: ${index * 0.05}s">
+            <div class="card-avatar">
+              ${person.avatar_url
+                ? `<img src="${escapeHtml(person.avatar_url)}" alt="${escapeHtml(person.name)}" loading="lazy">`
+                : `<div class="avatar-placeholder">${person.name.charAt(0)}</div>`
+              }
+            </div>
+            <div class="card-info">
+              <h3 class="card-name">${escapeHtml(person.name)}</h3>
+              <span class="card-category ${person.category}">${getCategoryLabel(person.category)}</span>
+              <p class="card-epitaph">${escapeHtml(truncateText(person.epitaph || '暂无墓志铭', 50))}</p>
+            </div>
+          </a>
+        `).join('');
+      } catch (error) {
+        listContainer.innerHTML = `
+          <div class="error">
+            <div class="error-icon">⚠️</div>
+            <div>加载失败: ${error.message}</div>
+            <button class="btn" onclick="loadPersonList()" style="margin-top: 15px;">重试</button>
+          </div>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>人物详情 - 赛博公墓</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- 顶部导航栏 -->
+  <header class="header">
+    <div class="container">
+      <h1 class="logo"><a href="index.html">赛博公墓</a></h1>
+      <div class="header-actions">
+        <a href="index.html" class="btn">返回首页</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主要内容区 -->
+  <main class="main">
+    <div class="container">
+      <div id="person-detail" class="person-detail">
+        <!-- 动态加载内容 -->
+        <div class="loading">加载中...</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 页脚 -->
+  <footer class="footer">
+    <div class="container">
+      <p>赛博公墓 - 在这里，记忆永存</p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+    // 详情页特定脚本
+    document.addEventListener('DOMContentLoaded', () => {
+      loadPersonDetail();
+    });
+
+    async function loadPersonDetail() {
+      const detailContainer = document.getElementById('person-detail');
+      const urlParams = new URLSearchParams(window.location.search);
+      const id = urlParams.get('id');
+
+      if (!id) {
+        detailContainer.innerHTML = '<div class="error">缺少人物ID</div>';
+        return;
+      }
+
+      // 显示骨架屏
+      detailContainer.innerHTML = `
+        <div class="skeleton-detail">
+          <div class="skeleton-header">
+            <div class="skeleton-avatar large"></div>
+            <div class="skeleton-title">
+              <div class="skeleton-text"></div>
+              <div class="skeleton-text short"></div>
+            </div>
+          </div>
+          <div class="skeleton-section">
+            <div class="skeleton-text"></div>
+            <div class="skeleton-text"></div>
+            <div class="skeleton-text short"></div>
+          </div>
+        </div>
+      `;
+
+      try {
+        const response = await fetch(`/api/persons/${id}`);
+        if (!response.ok) {
+          if (response.status === 404) {
+            detailContainer.innerHTML = `
+              <div class="empty">
+                <div class="empty-icon">🪦</div>
+                <div class="empty-title">人物不存在</div>
+                <div class="empty-desc">该纪念页面已被删除或从未存在</div>
+                <a href="index.html" class="btn btn-primary" style="margin-top: 20px;">返回首页</a>
+              </div>
+            `;
+            return;
+          }
+          throw new Error('加载失败');
+        }
+
+        const person = await response.json();
+
+        detailContainer.innerHTML = `
+          <div class="detail-header">
+            <div class="detail-avatar">
+              ${person.avatar_url
+                ? `<img src="${escapeHtml(person.avatar_url)}" alt="${escapeHtml(person.name)}">`
+                : `<div class="avatar-placeholder large">${person.name.charAt(0)}</div>`
+              }
+            </div>
+            <div class="detail-title">
+              <h1>${escapeHtml(person.name)}</h1>
+              <span class="detail-category ${person.category}">${getCategoryLabel(person.category)}</span>
+            </div>
+          </div>
+
+          ${person.bio ? `
+            <div class="detail-section">
+              <h2>生平</h2>
+              <div class="detail-bio">${escapeHtml(person.bio).replace(/\n/g, '<br>')}</div>
+            </div>
+          ` : ''}
+
+          <div class="detail-section">
+            <h2>墓志铭</h2>
+            <div class="detail-epitaph">
+              <blockquote>${escapeHtml(person.epitaph || '暂无墓志铭')}</blockquote>
+            </div>
+          </div>
+
+          <div class="detail-meta">
+            <p>创建于: ${formatDate(person.created_at)}</p>
+            <p>最后更新: ${formatDate(person.updated_at)}</p>
+          </div>
+
+          <div class="detail-actions">
+            <a href="edit.html?id=${person.id}" class="btn btn-primary">编辑</a>
+            <button class="btn btn-danger" onclick="deletePerson(${person.id})">删除</button>
+          </div>
+        `;
+      } catch (error) {
+        detailContainer.innerHTML = `<div class="error">加载失败: ${error.message}</div>`;
+      }
+    }
+
+    async function deletePerson(id) {
+      if (!confirm('确定要删除这个人物吗？此操作不可恢复。')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/persons/${id}`, { method: 'DELETE' });
+        if (!response.ok) throw new Error('删除失败');
+
+        showSuccess('删除成功，正在跳转...');
+        setTimeout(() => {
+          window.location.href = 'index.html';
+        }, 1000);
+      } catch (error) {
+        showError(`删除失败: ${error.message}`);
+      }
+    }
+  </script>
+</body>
+</html>

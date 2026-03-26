@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>编辑人物 - 赛博公墓</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- 顶部导航栏 -->
+  <header class="header">
+    <div class="container">
+      <h1 class="logo"><a href="index.html">赛博公墓</a></h1>
+      <div class="header-actions">
+        <a href="index.html" class="btn">返回首页</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主要内容区 -->
+  <main class="main">
+    <div class="container">
+      <div class="edit-container">
+        <h1 id="page-title">新建人物</h1>
+
+        <form id="edit-form" class="edit-form">
+          <input type="hidden" id="person-id">
+
+          <div class="form-group">
+            <label for="name">姓名 <span class="required">*</span></label>
+            <input type="text" id="name" name="name" required placeholder="输入人物姓名">
+          </div>
+
+          <div class="form-group">
+            <label for="category">分类</label>
+            <select id="category" name="category">
+              <option value="anime">动漫</option>
+              <option value="internet">网红</option>
+              <option value="fiction">小说</option>
+              <option value="real">现实</option>
+              <option value="self">自建墓志铭</option>
+              <option value="other" selected>其他</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="avatar_url">头像 URL</label>
+            <input type="url" id="avatar_url" name="avatar_url" placeholder="https://example.com/avatar.jpg">
+          </div>
+
+          <div class="form-group">
+            <label for="bio">生平介绍</label>
+            <textarea id="bio" name="bio" rows="5" placeholder="写下这个人的生平故事..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="epitaph">墓志铭</label>
+            <textarea id="epitaph" name="epitaph" rows="3" placeholder="写下墓志铭..."></textarea>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">保存</button>
+            <button type="button" class="btn" onclick="history.back()">取消</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <!-- 页脚 -->
+  <footer class="footer">
+    <div class="container">
+      <p>赛博公墓 - 在这里，记忆永存</p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+    // 编辑页特定脚本
+    document.addEventListener('DOMContentLoaded', () => {
+      checkEditMode();
+
+      document.getElementById('edit-form').addEventListener('submit', handleSubmit);
+    });
+
+    function checkEditMode() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const id = urlParams.get('id');
+
+      if (id) {
+        // 编辑模式
+        document.getElementById('page-title').textContent = '编辑人物';
+        document.getElementById('person-id').value = id;
+        loadPersonData(id);
+      } else {
+        // 新建模式
+        document.getElementById('page-title').textContent = '给自己写墓志铭';
+      }
+    }
+
+    async function loadPersonData(id) {
+      try {
+        const response = await fetch(`/api/persons/${id}`);
+        if (!response.ok) {
+          if (response.status === 404) {
+            showError('人物不存在');
+            setTimeout(() => {
+              window.location.href = 'index.html';
+            }, 1500);
+            return;
+          }
+          throw new Error('加载失败');
+        }
+
+        const person = await response.json();
+
+        document.getElementById('name').value = person.name;
+        document.getElementById('category').value = person.category;
+        document.getElementById('avatar_url').value = person.avatar_url || '';
+        document.getElementById('bio').value = person.bio || '';
+        document.getElementById('epitaph').value = person.epitaph || '';
+      } catch (error) {
+        showError(`加载数据失败: ${error.message}`);
+      }
+    }
+
+    async function handleSubmit(e) {
+      e.preventDefault();
+
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.textContent = '保存中...';
+
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData.entries());
+
+      // 移除空字符串
+      Object.keys(data).forEach(key => {
+        if (data[key] === '') delete data[key];
+      });
+
+      const id = document.getElementById('person-id').value;
+      const url = id ? `/api/persons/${id}` : '/api/persons';
+      const method = id ? 'PUT' : 'POST';
+
+      try {
+        const response = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || '保存失败');
+        }
+
+        const result = await response.json();
+        showSuccess('保存成功！');
+
+        setTimeout(() => {
+          if (id) {
+            window.location.href = `detail.html?id=${id}`;
+          } else {
+            window.location.href = `detail.html?id=${result.id}`;
+          }
+        }, 800);
+      } catch (error) {
+        showError(`保存失败: ${error.message}`);
+        submitBtn.disabled = false;
+        submitBtn.textContent = '保存';
+      }
+    }
+  </script>
+</body>
+</html>
